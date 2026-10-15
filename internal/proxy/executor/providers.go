@@ -1622,10 +1622,14 @@ func normalizeMuseSparkResponsesBody(body []byte, model string) ([]byte, error) 
 	// sending effort "none" instead asks a model to think at the lowest level
 	// rather than to not think, which is a different (and billable) request.
 	if rEffort, ok := m["reasoning_effort"].(string); ok {
-		delete(m, "reasoning_effort")
+		// "none" has no upstream equivalent (accepted: minimal..max): drop
+		// reasoning entirely, mirroring applyZenResponsesReasoning. Sending
+		// effort "none" makes the strict upstream answer 400
+		// "reasoning_effort 'none' is not supported".
 		if strings.EqualFold(strings.TrimSpace(rEffort), "none") {
+			delete(m, "reasoning_effort")
 			delete(m, "reasoning")
-		} else if rEffort != "" {
+		} else {
 			if rEffort == "max" {
 				rEffort = "xhigh"
 			}
@@ -1633,17 +1637,16 @@ func normalizeMuseSparkResponsesBody(body []byte, model string) ([]byte, error) 
 				"effort":  rEffort,
 				"summary": "auto",
 			}
+			delete(m, "reasoning_effort")
 		}
 	} else if rMap, ok := m["reasoning"].(map[string]any); ok {
 		if eff, ok := rMap["effort"].(string); ok {
 			if strings.EqualFold(strings.TrimSpace(eff), "none") {
 				delete(m, "reasoning")
-			} else if eff == "max" {
-				rMap["effort"] = "xhigh"
-			}
-		}
-		if _, still := m["reasoning"]; still {
-			if rMap["summary"] == nil {
+			} else {
+				if eff == "max" {
+					rMap["effort"] = "xhigh"
+				}
 				rMap["summary"] = "auto"
 			}
 		}
