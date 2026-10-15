@@ -41,3 +41,4 @@ stitch-screenshots/
 # with `git rm --cached` before it reaches the remote.
 .worktrees/
 .smoke-data/
+9router-bin

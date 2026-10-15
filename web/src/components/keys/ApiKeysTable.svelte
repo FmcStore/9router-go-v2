@@ -132,6 +132,14 @@
   // Status, policy and creation date share one multi-line cell rather than
   // three columns: an operator reads them as facts about the same key, and the
   // separate columns made the table wider than the row content justified.
+  // Compact token counts for the quota badge: 1234567 -> "1.2M". Full
+  // toLocaleString strings made the badge wrap the policy cell.
+  function fmtTokens(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`
+    if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`
+    return String(n)
+  }
+
   function policyBadges(k: APIKey): { label: string; tone: 'info' | 'danger' }[] {
     const badges: { label: string; tone: 'info' | 'danger' }[] = []
     if ((k.rateLimitRpm ?? 0) > 0) badges.push({ label: `${k.rateLimitRpm}/min`, tone: 'info' })
@@ -142,7 +150,10 @@
       badges.push({ label: `${(k.rateLimitConcurrency ?? 0).toLocaleString()} conc`, tone: 'info' })
     }
     if ((k.tokenQuota ?? 0) > 0) {
-      badges.push({ label: `${(k.tokenQuota ?? 0).toLocaleString()} tok quota`, tone: 'info' })
+      const quota = k.tokenQuota ?? 0
+      const used = k.tokenUsage ?? 0
+      const pct = Math.min(100, Math.round((used / quota) * 100))
+      badges.push({ label: `${fmtTokens(used)} / ${fmtTokens(quota)} tok (${pct}%)`, tone: pct >= 90 ? 'danger' : 'info' })
     }
     if ((k.expiresAt ?? '') !== '') {
       badges.push({ label: isExpired(k) ? 'expired' : 'expires', tone: isExpired(k) ? 'danger' : 'info' })

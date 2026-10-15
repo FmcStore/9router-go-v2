@@ -35,6 +35,8 @@ func (h *DashboardHandler) HandleGetApiKeys(w http.ResponseWriter, r *http.Reque
 		if k == nil {
 			continue
 		}
+		tokenUsage, usageErr := h.Repo.GetApiKeyTokenUsage(k.Key)
+		_ = usageErr // an empty or unreadable history spends 0, the list still renders
 		sanitized = append(sanitized, map[string]any{
 			"id": k.ID, "key": apiKeySecretFor(k, privileged), "keyDisplay": apiKeyDisplay(k), "name": k.Name,
 			"machineId": k.MachineID, "isActive": k.IsActive, "createdAt": k.CreatedAt,
@@ -49,8 +51,13 @@ func (h *DashboardHandler) HandleGetApiKeys(w http.ResponseWriter, r *http.Reque
 			"queueTimeoutMs":       intOrZero(k.QueueTimeoutMs),
 			"expiresAt":            stringOrEmpty(k.ExpiresAt),
 			"lastUsedAt":           stringOrEmpty(k.LastUsedAt),
-			"usedCount":            intOrZero(k.UsedCount),
-			"metadata":             stringOrEmpty(k.Metadata),
+			// tokenUsage is the spent side of tokenQuota (the same prompt+completion
+		// sum the limiter enforces), so the dashboard can show a key burning
+		// toward its lifetime budget without a separate per-key fetch. Keys
+		// stored only as a hash have no raw key to sum with and read 0.
+		"tokenUsage": tokenUsage,
+		"usedCount":  intOrZero(k.UsedCount),
+		"metadata":   stringOrEmpty(k.Metadata),
 		})
 	}
 	handlerutil.WriteJSON(w, http.StatusOK, sanitized)

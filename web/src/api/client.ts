@@ -89,6 +89,8 @@ export interface APIKey {
   rateLimitConcurrency?: number
   /** Lifetime prompt+completion token budget. 0 means unlimited. */
   tokenQuota?: number
+  /** Lifetime tokens actually spent — the counter tokenQuota is measured against. */
+  tokenUsage?: number
   /** How long a request waits for a free concurrency slot, in ms. 0 uses the server default. */
   queueTimeoutMs?: number
   /** RFC3339 UTC. Empty means the key never expires. */
