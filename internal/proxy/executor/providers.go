@@ -1251,19 +1251,32 @@ func normalizeMuseSparkResponsesBody(body []byte, cleanModel string) ([]byte, er
 		return body, nil
 	}
 	if rEffort, ok := m["reasoning_effort"].(string); ok {
-		if rEffort == "max" {
-			rEffort = "xhigh"
+		// "none" has no upstream equivalent (accepted: minimal..max): drop
+		// reasoning entirely, mirroring applyZenResponsesReasoning. Sending
+		// effort "none" makes the strict upstream answer 400
+		// "reasoning_effort 'none' is not supported".
+		if strings.EqualFold(strings.TrimSpace(rEffort), "none") {
+			delete(m, "reasoning_effort")
+			delete(m, "reasoning")
+		} else {
+			if rEffort == "max" {
+				rEffort = "xhigh"
+			}
+			m["reasoning"] = map[string]any{
+				"effort":  rEffort,
+				"summary": "auto",
+			}
+			delete(m, "reasoning_effort")
 		}
-		m["reasoning"] = map[string]any{
-			"effort":  rEffort,
-			"summary": "auto",
-		}
-		delete(m, "reasoning_effort")
 	} else if rMap, ok := m["reasoning"].(map[string]any); ok {
-		if eff, ok := rMap["effort"].(string); ok && eff == "max" {
-			rMap["effort"] = "xhigh"
+		if eff, ok := rMap["effort"].(string); ok && (strings.EqualFold(strings.TrimSpace(eff), "none")) {
+			delete(m, "reasoning")
+		} else {
+			if eff, ok := rMap["effort"].(string); ok && eff == "max" {
+				rMap["effort"] = "xhigh"
+			}
+			rMap["summary"] = "auto"
 		}
-		rMap["summary"] = "auto"
 	}
 	// PR #4061: Strip prior reasoning items & continuity properties
 	if inList, ok := m["input"].([]any); ok {
