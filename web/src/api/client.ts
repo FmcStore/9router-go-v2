@@ -2544,7 +2544,31 @@ export const api = {
     )
   },
   // Auth
-  checkRequireLogin: async (): Promise<RequireLoginResponse> => {
+  // Self-service account surface: authenticated by the caller's own API key,
+  // never the dashboard session. Read-only.
+  accountUsage: async (apiKey: string): Promise<unknown> => {
+    const res = await fetch('/v1/account/usage', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(body || `usage failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+  accountModels: async (apiKey: string): Promise<unknown> => {
+    const res = await fetch('/v1/account/models', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(body || `models failed (${res.status})`)
+    }
+    return res.json()
+  },
+
+checkRequireLogin: async (): Promise<RequireLoginResponse> => {
     try {
       const res = await fetch('/api/settings/require-login')
       if (res.ok) {

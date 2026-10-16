@@ -106,6 +106,16 @@ func SetupRoutes(r interface {
 	r.Post("/messages/count_tokens", chatH.HandleCountTokens)
 	r.Post("/api/chat", chatH.HandleOllamaChat)
 
+	// Self-service account surface (read-only): the caller's own API key is
+	// the only credential, so a resold key can check its own usage and model
+	// access without reaching any dashboard management endpoint. The bare
+	// aliases exist because RequestLogger rewrites URL.Path to strip one /v1
+	// prefix, so chi never sees the /v1/… spelling these handlers answer on.
+	r.Get("/v1/account/usage", chatH.HandleAccountUsage)
+	r.Get("/v1/account/models", chatH.HandleAccountModels)
+	r.Get("/account/usage", chatH.HandleAccountUsage)
+	r.Get("/account/models", chatH.HandleAccountModels)
+
 	// Media, Audio, Video & Web Tools Domain
 	r.Post("/embeddings", mediaH.HandleEmbeddings)
 	r.Post("/rerank", mediaH.HandleRerank)
@@ -559,6 +569,10 @@ func SetupServerRouter(r chi.Router, repo *db.Repo, ts *TokenSaverConfig) *chat.
 	r.Get("/callback", oauthH.HandleCallbackPage)
 	r.Get("/", webH.ServeHTTP)
 	r.Get("/login", webH.ServeHTTP)
+	// Standalone account portal: the caller's own API key authenticates the
+	// data endpoints, so the page itself needs no dashboard session and must
+	// not sit behind the dashboard login guard.
+	r.Get("/account", webH.ServeHTTP)
 	// Dashboard pages require the login session when requireLogin is on; the
 	// guard redirects browsers to /login (upstream dashboardGuard).
 	r.Group(func(r chi.Router) {

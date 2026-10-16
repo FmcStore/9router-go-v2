@@ -1647,7 +1647,9 @@ func normalizeMuseSparkResponsesBody(body []byte, model string) ([]byte, error) 
 				if eff == "max" {
 					rMap["effort"] = "xhigh"
 				}
-				rMap["summary"] = "auto"
+				if rMap["summary"] == nil {
+					rMap["summary"] = "auto"
+				}
 			}
 		}
 	} else if effort := museSparkEffortSuffix(model); effort != "" {
