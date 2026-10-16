@@ -18,6 +18,7 @@
   import OAuthCallbackView from './components/connections/OAuthCallbackView.svelte'
   import EndpointView from './components/EndpointView.svelte'
   import LoginView from './components/LoginView.svelte'
+  import AccountView from './components/AccountView.svelte'
   import MediaKindView from './components/media/MediaKindView.svelte'
   import MediaProviderDetail from './components/media/MediaProviderDetail.svelte'
   import ProxyPoolsView from './components/ProxyPoolsView.svelte'
@@ -62,6 +63,11 @@
   // gate — it only hands the code over to the dashboard tab via storage.
   let isOAuthCallback = $state(
     typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '') === '/callback'
+  )
+  // Standalone account portal (/account): the caller's own API key is the
+  // credential, so it renders outside the dashboard login gate like /callback.
+  let isAccountPage = $state(
+    typeof window !== 'undefined' && window.location.pathname.replace(/\/+$/, '') === '/account'
   )
 
   function navigate(tab: ActiveTab, replace = false, providerId?: string | null) {
@@ -263,6 +269,8 @@
 
 {#if isOAuthCallback}
   <OAuthCallbackView />
+{:else if isAccountPage}
+  <AccountView />
 {:else if isAuthChecking}
   <div class="min-h-screen flex items-center justify-center bg-bg p-4">
     <div class="text-center">
