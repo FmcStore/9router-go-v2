@@ -474,8 +474,24 @@ func deepSeekStreamToClient(w http.ResponseWriter, req *Request, upstream io.Rea
 			fmt.Errorf("deepseek-web stream ended before completion — the upstream session was cut off"))
 	}
 
-	if err := emit(map[string]any{}, "stop"); err != nil {
-		return err
+	// Usage rides the finish chunk (ported from purujawa06-bot/9router
+	// 88cfaaf): a stream that never reports usage is invisible to analytics.
+	// The estimate goes on the finish chunk itself, so a client reading
+	// `usage` from the last chunk sees it without an extra delta.
+	finishChunk := map[string]any{
+		"id":      responseID,
+		"object":  "chat.completion.chunk",
+		"created": created,
+		"model":   model,
+		"choices": []map[string]any{{"index": 0, "delta": map[string]any{}, "finish_reason": "stop"}},
+		"usage": deepSeekWebBuildUsage(deepSeekLastUserText(accumulator, req),
+			accumulator.contentText(), accumulator.thinkingText()),
+	}
+	if encoded, chunkErr := json.Marshal(finishChunk); chunkErr == nil {
+		_, _ = hw.Write(fmt.Appendf(nil, "data: %s\n\n", encoded))
+		if flusher != nil {
+			flusher.Flush()
+		}
 	}
 	_, err := hw.Write([]byte("data: [DONE]\n\n"))
 	if flusher != nil {
@@ -527,13 +543,21 @@ func deepSeekCollectToClient(w http.ResponseWriter, req *Request, upstream io.Re
 	if thinking := accumulator.thinkingText(); thinking != "" {
 		message["reasoning_content"] = thinking
 	}
+	// The web upstream never reports token counts, so the usage object was
+	// all zeros — and a 0/0 usage row is dropped by the usage recorder, which
+	// kept deepseek-web traffic invisible in Usage & Analytics. Estimate from
+	// the same text the response carries, the way gemini-web and puru's
+	// deepseek-web (88cfaaf) do. Tool-call turns have no visible content, so
+	// the estimate covers whatever the accumulator produced.
+	promptText := deepSeekLastUserText(accumulator, req)
+	usage := deepSeekWebBuildUsage(promptText, text, accumulator.thinkingText())
 	body := map[string]any{
 		"id":      deepSeekResponseID(),
 		"object":  "chat.completion",
 		"created": time.Now().Unix(),
 		"model":   model,
 		"choices": []map[string]any{{"index": 0, "message": message, "finish_reason": "stop"}},
-		"usage":   map[string]any{"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+		"usage":   usage,
 	}
 
 	encoded, err := json.Marshal(body)
